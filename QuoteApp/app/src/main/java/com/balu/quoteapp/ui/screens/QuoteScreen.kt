@@ -9,10 +9,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.balu.quoteapp.endpoint.Quote
+import com.balu.quoteapp.ui.components.PaginationControls
+import com.balu.quoteapp.ui.theme.QuoteAppTheme
 import com.balu.quoteapp.viewmodel.QuotesViewModel
-import retrofit2.http.Query
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +28,12 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
     // Pagination State
     val quotesPerPage = 5
     var currentPage by remember { mutableIntStateOf(1) }
+
+    LaunchedEffect(quotes) {
+        if (quotes.isNotEmpty()) {
+            displayedQuotes = quotes
+        }
+    }
 
     LaunchedEffect(Unit) {
         quotesViewModel.fetchQuotes()
@@ -48,7 +56,7 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                     text = "Error: $error",
                     color = MaterialTheme.colorScheme.error
                 )
-            } else if (quotes.isEmpty()) {
+            } else if (quotes.isEmpty() && displayedQuotes.isEmpty()) { // Condition to show loader
                 CircularProgressIndicator()
             } else {
                 // Row for Search Bar and Search Button
@@ -70,9 +78,9 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                                 performSearch(
                                     searchQuery = searchQuery,
                                     quotes = quotes,
-                                    onResult = {displayedQuotes = it},
-                                    resetPage = {currentPage = 1})
-                                }
+                                    onResult = { displayedQuotes = it },
+                                    resetPage = { currentPage = 1 })
+                            }
                         )
                     )
 
@@ -82,8 +90,8 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                         performSearch(
                             searchQuery = searchQuery,
                             quotes = quotes,
-                            onResult = {displayedQuotes = it},
-                            resetPage = {currentPage = 1})
+                            onResult = { displayedQuotes = it },
+                            resetPage = { currentPage = 1 })
                     }) {
                         Text("Search")
                     }
@@ -98,6 +106,7 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                 ) {
                     Button(onClick = {
                         displayedQuotes = quotes
+                        searchQuery = "" // Clear search query
                         currentPage = 1 // Reset to first page on "Display All"
                     }) {
                         Text("Display All Quotes")
@@ -107,13 +116,17 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Paginated Quotes Display
-                val totalPages = (displayedQuotes.size + quotesPerPage - 1) / quotesPerPage // Ceiling division
+                val totalPages = (displayedQuotes.size + quotesPerPage - 1) / quotesPerPage
                 val startIndex = (currentPage - 1) * quotesPerPage
                 val endIndex = (startIndex + quotesPerPage).coerceAtMost(displayedQuotes.size)
                 val paginatedQuotes = if (displayedQuotes.isNotEmpty()) {
                     displayedQuotes.subList(startIndex, endIndex)
                 } else {
                     emptyList()
+                }
+
+                if (paginatedQuotes.isEmpty() && searchQuery.isNotEmpty()) {
+                    Text(text = "No quotes found for \"$searchQuery\"")
                 }
 
                 LazyColumn(
@@ -147,51 +160,33 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
                 // Pagination Links
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    if (currentPage > 1) {
-                        TextButton(onClick = { currentPage-- }) {
-                            Text("Previous")
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // Page Numbers
-                    (1..totalPages).forEach { page ->
-                        TextButton(onClick = { currentPage = page }) {
-                            Text(
-                                text = page.toString(),
-                                color = if (page == currentPage) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    if (currentPage < totalPages) {
-                        TextButton(onClick = { currentPage++ }) {
-                            Text("Next")
-                        }
-                    }
+                if (totalPages >1) {
+                    PaginationControls(
+                        currentPage = currentPage,
+                        totalPages = totalPages,
+                        onPageChange = { newPage -> currentPage = newPage }
+                    )
                 }
+
             }
         }
     }
 }
 
-fun performSearch(searchQuery: String,
-                  quotes: List<Quote>,
-                  onResult: (List<Quote>) -> Unit,
-                  resetPage: ()-> Unit){
-    val filtered = quotes.filter {
-        it.quote.contains(searchQuery, ignoreCase = true) ||
-                it.author.contains(searchQuery, ignoreCase = true)
+fun performSearch(
+    searchQuery: String,
+    quotes: List<Quote>,
+    onResult: (List<Quote>) -> Unit,
+    resetPage: () -> Unit,
+){
+    val filtered = if (searchQuery.isBlank()) {
+        quotes
+    } else {
+        quotes.filter {
+            it.quote.contains(searchQuery, ignoreCase = true) ||
+                    it.author.contains(searchQuery, ignoreCase = true)
+        }
     }
     onResult(filtered)
     resetPage()
