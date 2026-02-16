@@ -19,19 +19,22 @@ import com.balu.quoteapp.viewmodel.QuotesViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
-    val quotes by quotesViewModel.quotes.collectAsState()
+    val quotes by quotesViewModel.state.collectAsState()
     val error by quotesViewModel.error.collectAsState()
 
     var displayedQuotes by remember { mutableStateOf<List<Quote>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
+
+    var allQuotes = quotes.allQuotes
 
     // Pagination State
     val quotesPerPage = 5
     var currentPage by remember { mutableIntStateOf(1) }
 
     LaunchedEffect(quotes) {
-        if (quotes.isNotEmpty()) {
-            displayedQuotes = quotes
+
+        if (allQuotes.isNotEmpty()) {
+            displayedQuotes = allQuotes
         }
     }
 
@@ -56,7 +59,7 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                     text = "Error: $error",
                     color = MaterialTheme.colorScheme.error
                 )
-            } else if (quotes.isEmpty() && displayedQuotes.isEmpty()) { // Condition to show loader
+            } else if (allQuotes.isEmpty() && displayedQuotes.isEmpty()) { // Condition to show loader
                 CircularProgressIndicator()
             } else {
                 // Row for Search Bar and Search Button
@@ -77,7 +80,7 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                             onDone = {
                                 performSearch(
                                     searchQuery = searchQuery,
-                                    quotes = quotes,
+                                    quotes = allQuotes,
                                     onResult = { displayedQuotes = it },
                                     resetPage = { currentPage = 1 })
                             }
@@ -89,7 +92,7 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                     Button(onClick = {
                         performSearch(
                             searchQuery = searchQuery,
-                            quotes = quotes,
+                            quotes = allQuotes,
                             onResult = { displayedQuotes = it },
                             resetPage = { currentPage = 1 })
                     }) {
@@ -105,7 +108,7 @@ fun QuoteScreen(quotesViewModel: QuotesViewModel = androidx.lifecycle.viewmodel.
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Button(onClick = {
-                        displayedQuotes = quotes
+                        displayedQuotes = allQuotes
                         searchQuery = "" // Clear search query
                         currentPage = 1 // Reset to first page on "Display All"
                     }) {
